@@ -5,10 +5,13 @@
 
 
 ; Constants
-(def width 700)
-(def height 600)
+(def width 500)
+(def height 500)
+
 (def cell-size 8)
 (def max-blob-size 500)
+(def min-value 0.20)
+
 (def lavender-color [256 0.47 0.65])
 (def background-color [256 0 0.65])
 
@@ -29,7 +32,7 @@
   (js/Math.abs (- x y)))
 
 
-(defn cell-opacity [x y]
+(defn cell-value [x y]
   (let [n-base (q/noise (* 0.1 x) (* 0.1 y))
         n-noise (q/noise (* 0.8 x) (* 0.8 y) 2000)
 
@@ -54,7 +57,7 @@
             (<= max-blob-size visible-count))
       visible
       (let [cell (first frontier)
-            visible? (< 0.20 (apply cell-opacity cell))
+            visible? (< min-value (apply cell-value cell))
             neighbors (apply cell-neighbors cell)
             unseen (filter (comp not (partial contains? seen)) neighbors)
             
@@ -70,10 +73,17 @@
 
 (def visible-cells (atom #{}))
 
+(defn set-viable-seed! []
+  (while (< (cell-value mid-x mid-y) min-value)
+    (q/noise-seed (q/random 10000))))
+
 (defn setup []
   (q/frame-rate 4)
   (q/color-mode :hsb 360 1.0 1.0 1.0)
+
+  (set-viable-seed!)
   (reset! visible-cells (find-visible-cells))
+
   {})
 
 
@@ -88,11 +98,10 @@
 
   (doseq [x (range (quot width cell-size))
           y (range (quot height cell-size))]
-    (let [opacity (cell-opacity x y)
-          color (if (contains? @visible-cells [x y])
-                  lavender-color
-                  background-color)]
-      (apply q/fill (conj color opacity))
+    (let [color (if (contains? @visible-cells [x y])
+                  (conj lavender-color (cell-value x y))
+                  [0 0 0 0])]
+      (apply q/fill color)
       (apply q/rect (mapv #(* % cell-size)
                           [x y 1 1])))))
 
