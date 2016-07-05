@@ -32,9 +32,9 @@
   (js/Math.abs (- x y)))
 
 
-(defn cell-value [x y]
-  (let [n-base (q/noise (* 0.1 x) (* 0.1 y))
-        n-noise (q/noise (* 0.8 x) (* 0.8 y) 2000)
+(defn cell-value [x y t]
+  (let [n-base (q/noise (* 0.1 x) (* 0.1 y) (* 0.005 t))
+        n-noise (q/noise (* 0.8 x) (* 0.8 y) (-> t (* 0.001) (+ 2000)))
 
         v-base (scaled -1.5 2.2 n-base)
         v-noise (scaled -0.3 0.3 n-noise)]
@@ -51,13 +51,13 @@
                              (< y max-y))))))
 
 (defn find-visible-cells
-  ([] (find-visible-cells #{[mid-x mid-y]} (list [mid-x mid-y]) #{} 0))
-  ([seen frontier visible visible-count]
+  ([t] (find-visible-cells #{[mid-x mid-y]} (list [mid-x mid-y]) #{} 0 t))
+  ([seen frontier visible visible-count t]
     (if (or (= 0 (count frontier))
             (<= max-blob-size visible-count))
       visible
-      (let [cell (first frontier)
-            visible? (< min-value (apply cell-value cell))
+      (let [[x y :as cell] (first frontier)
+            visible? (< min-value (cell-value x y t))
             neighbors (apply cell-neighbors cell)
             unseen (filter (comp not (partial contains? seen)) neighbors)
             
@@ -69,34 +69,41 @@
                           (conj visible cell)
                           visible)
             new-visible-count (+ visible-count (if visible? 1 0))]
-        (recur new-seen new-frontier new-visible new-visible-count)))))
+        (recur new-seen new-frontier new-visible new-visible-count t)))))
 
 
 (defn set-viable-seed! []
-  (while (< (cell-value mid-x mid-y) min-value)
+  (while (< (cell-value mid-x mid-y 0) min-value)
     (q/noise-seed (q/random 10000))))
 
+(defn next-valid-step [step]
+  (if (< (cell-value mid-x mid-y (+ step 1)) min-value)
+    (recur (+ step 1))
+    (+ step 1)))
 
 (defn setup []
   (q/color-mode :hsb 360 1.0 1.0 1.0)
+  (q/frame-rate 5)
 
-  (q/no-loop)
   (set-viable-seed!)
-  {:visible-cells (find-visible-cells)
-   :hovering? true})
+  {:visible-cells (find-visible-cells 0)
+   :hovering? false
+   :step 0})
 
+(defn on-mouse-enter [state]
+  (assoc state :hovering? true))
 
-(defn update-state [{hovering? :hovering? :as state}]
+(defn on-mouse-exit [state]
+  (assoc state :hovering? false))
+
+(defn update-state [{step :step hovering? :hovering? :as state}]
   (if (not hovering?)
     state
-    (do
-      (set-viable-seed!)
-      (js/console.log "Set new viable seed")
-      {:visible-cells (find-visible-cells)
-       :hovering? hovering?})))
+    (assoc state :visible-cells (find-visible-cells step)
+                 :step (next-valid-step step))))
 
 
-(defn draw-state [{visible-cells :visible-cells}]
+(defn draw-state [{step :step visible-cells :visible-cells}]
   ; Clear the sketch by filling it with light-grey color.
   (q/background 0 0)
   (q/no-stroke)
@@ -104,7 +111,7 @@
   (doseq [x (range (quot width cell-size))
           y (range (quot height cell-size))]
     (let [color (if (contains? visible-cells [x y])
-                  (conj lavender-color (cell-value x y))
+                  (conj lavender-color (cell-value x y step))
                   [0 0 0 0])]
       (apply q/fill color)
       (apply q/rect (mapv #(* % cell-size)
@@ -117,4 +124,6 @@
   :setup setup
   :update update-state
   :draw draw-state
+  :mouse-entered on-mouse-enter
+  :mouse-exited on-mouse-exit
   :middleware [m/fun-mode])
