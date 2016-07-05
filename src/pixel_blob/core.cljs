@@ -1,4 +1,4 @@
-(ns pixel-blobs.core
+(ns pixel-blob.core
   (:require [quil.core :as q :include-macros true]
             [quil.middleware :as m]
             [clojure.set :as s]))
@@ -121,8 +121,8 @@
                           [x y 1 1])))))
 
 
-(q/defsketch pixel-blobs
-  :host "pixel-blobs"
+(q/defsketch pixel-blob
+  :host "pixel-blob"
   :size [width height]
   :setup setup
   :update update-state
