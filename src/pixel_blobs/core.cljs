@@ -71,34 +71,39 @@
             new-visible-count (+ visible-count (if visible? 1 0))]
         (recur new-seen new-frontier new-visible new-visible-count)))))
 
-(def visible-cells (atom #{}))
 
 (defn set-viable-seed! []
   (while (< (cell-value mid-x mid-y) min-value)
     (q/noise-seed (q/random 10000))))
 
+
 (defn setup []
-  (q/frame-rate 4)
   (q/color-mode :hsb 360 1.0 1.0 1.0)
 
+  (q/no-loop)
   (set-viable-seed!)
-  (reset! visible-cells (find-visible-cells))
-
-  {})
-
-
-(defn update-state [state]
-  state)
+  {:visible-cells (find-visible-cells)
+   :hovering? true})
 
 
-(defn draw-state [state]
+(defn update-state [{hovering? :hovering? :as state}]
+  (if (not hovering?)
+    state
+    (do
+      (set-viable-seed!)
+      (js/console.log "Set new viable seed")
+      {:visible-cells (find-visible-cells)
+       :hovering? hovering?})))
+
+
+(defn draw-state [{visible-cells :visible-cells}]
   ; Clear the sketch by filling it with light-grey color.
   (q/background 0 0)
   (q/no-stroke)
 
   (doseq [x (range (quot width cell-size))
           y (range (quot height cell-size))]
-    (let [color (if (contains? @visible-cells [x y])
+    (let [color (if (contains? visible-cells [x y])
                   (conj lavender-color (cell-value x y))
                   [0 0 0 0])]
       (apply q/fill color)
@@ -109,12 +114,7 @@
 (q/defsketch pixel-blobs
   :host "pixel-blobs"
   :size [width height]
-  ; setup function called only once, during sketch initialization.
   :setup setup
-  ; update-state is called on each iteration before draw-state.
   :update update-state
   :draw draw-state
-  ; This sketch uses functional-mode middleware.
-  ; Check quil wiki for more info about middlewares and particularly
-  ; fun-mode.
   :middleware [m/fun-mode])
