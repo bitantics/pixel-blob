@@ -86,14 +86,17 @@
   (q/frame-rate 5)
 
   (set-viable-seed!)
+  (q/no-loop)
   {:visible-cells (find-visible-cells 0)
    :hovering? false
    :step 0})
 
 (defn on-mouse-enter [state]
+  (q/start-loop)
   (assoc state :hovering? true))
 
 (defn on-mouse-exit [state]
+  (q/no-loop)
   (assoc state :hovering? false))
 
 (defn update-state [{step :step hovering? :hovering? :as state}]
